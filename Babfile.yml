@@ -1,0 +1,63 @@
+tasks:
+  install:
+    desc: Install production dependencies
+    run:
+      - cmd: uv sync --no-dev
+
+  dev:
+    desc: Install development dependencies and pre-commit hooks
+    run:
+      - cmd: uv sync
+      - cmd: uv run pre-commit install
+
+  lint:
+    desc: Run all linting checks (ruff + mypy)
+    run:
+      - cmd: uv run ruff check src tests
+      - cmd: uv run mypy src tests
+
+  format:
+    desc: Format code with ruff
+    run:
+      - cmd: uv run ruff format src tests
+      - cmd: uv run ruff check --fix src tests
+
+  format:check:
+    desc: Check if code is formatted correctly
+    run:
+      - cmd: uv run ruff format --check src tests
+
+  test:
+    desc: Run tests
+    run:
+      - cmd: uv run pytest
+
+  test:cov:
+    desc: Run tests with coverage report
+    run:
+      - cmd: uv run pytest --cov=babm --cov-report=html --cov-report=xml
+
+  check:
+    desc: Run all checks (lint + test)
+    deps: [lint, test]
+
+  build:
+    desc: Build package (sdist + wheel)
+    run:
+      - cmd: uv build
+
+  clean:
+    desc: Clean build artifacts
+    run:
+      - cmd: rm -rf build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage coverage.xml
+      - cmd: find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+  release:test:
+    desc: Publish to TestPyPI
+    run:
+      - cmd: uv publish --publish-url https://test.pypi.org/legacy/
+
+  release:
+    desc: Publish to PyPI
+    run:
+      - cmd: uv publish

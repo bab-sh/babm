@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build sdist
+        run: uv build --sdist
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+
+  build-wheels:
+    name: Build wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-wheel
+          path: dist/*.whl
+
+  build-binaries:
+    name: Build binary (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x64
+            runner: ubuntu-latest
+            binary_name: babm-linux-x64
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+            binary_name: babm-linux-arm64
+          - os: macos
+            arch: x64
+            runner: macos-13
+            binary_name: babm-darwin-x64
+          - os: macos
+            arch: arm64
+            runner: macos-latest
+            binary_name: babm-darwin-arm64
+          - os: windows
+            arch: x64
+            runner: windows-latest
+            binary_name: babm-windows-x64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --extra build
+
+      - name: Build binary with PyInstaller
+        run: uv run pyinstaller --onefile --name ${{ matrix.binary_name }} src/babm/__main__.py
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/${{ matrix.binary_name }}*
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [build-sdist, build-wheels]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/babm/
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always
+        env:
+          UV_PUBLISH_URL: https://upload.pypi.org/legacy/
+
+  generate-sbom:
+    name: Generate SBOM
+    needs: [build-sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Generate requirements.txt for SBOM
+        run: uv export --format requirements-txt > requirements.txt
+
+      - name: Generate SBOM (CycloneDX)
+        uses: CycloneDX/gh-python-generate-sbom@v2
+        with:
+          input: ./requirements.txt
+          output: ./sbom.json
+          format: json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+
+  upload-release-assets:
+    name: Upload Release Assets
+    needs: [build-binaries, publish-pypi, generate-sbom]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          cp artifacts/binary-*/* release-assets/ || true
+          cp artifacts/sbom/sbom.json release-assets/sbom.json || true
+
+      - name: Generate checksums
+        working-directory: release-assets
+        run: sha256sum * > SHA256SUMS.txt
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
