@@ -22,7 +22,7 @@ jobs:
         run: uv build --sdist
 
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist-sdist
           path: dist/*.tar.gz
@@ -40,7 +40,7 @@ jobs:
         run: uv build --wheel
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist-wheel
           path: dist/*.whl
@@ -91,7 +91,7 @@ jobs:
         run: uv run pyinstaller --onefile --name ${{ matrix.binary_name }} src/babm/__main__.py
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: binary-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/${{ matrix.binary_name }}*
@@ -141,7 +141,7 @@ jobs:
           format: json
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom
           path: sbom.json
