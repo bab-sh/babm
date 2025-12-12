@@ -8,11 +8,27 @@ CLI Migration tool for Babfile and other task runner formats.
 
 ## Installation
 
+### Quick Install (recommended)
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://babm.bab.sh/install.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://babm.bab.sh/install.ps1 | iex
+```
+
+### PyPI
+
 ```bash
 pip install babm
 ```
 
-Or download a standalone binary from the [releases page](https://github.com/bab-sh/babm/releases).
+### Standalone Binary
+
+Download from the [releases page](https://github.com/bab-sh/babm/releases).
 
 ## Development
 
@@ -22,7 +38,3 @@ cd babm
 uv sync
 uv run pytest
 ```
-
-## License
-
-MIT
